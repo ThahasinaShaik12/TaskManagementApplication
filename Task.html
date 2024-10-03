@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Task Manager</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        font-family: "Poppins", sans-serif;
+        box-sizing: border-box;
+      }
+
+      .container {
+        width: 100%;
+        min-height: 100vh;
+        background: linear-gradient(135deg, #153677, #4e085f);
+        padding: 10px;
+      }
+
+      .todo-app {
+        width: 100%;
+        max-width: 540px;
+        background: #fff;
+        margin: 100px auto 20px;
+        padding: 40px 30px 70px;
+        border-radius: 10px;
+      }
+
+      .todo-app h2 {
+        color: #002765;
+        display: flex;
+        align-items: center;
+        margin-bottom: 20px;
+      }
+
+      .row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: #edeef0;
+        border-radius: 30px;
+        padding-left: 20px;
+        margin-bottom: 25px;
+      }
+
+      input {
+        flex: 1;
+        border: none;
+        outline: none;
+        background: transparent;
+        padding: 10px;
+      }
+
+      button1 {
+        border: none;
+        outline: none;
+        padding: 16px 50px;
+        background: rgb(60, 60, 228);
+        color: #fff;
+        font-size: 16px;
+        cursor: pointer;
+        border-radius: 40px;
+      }
+      button {
+        border: none;
+        outline: none;
+        padding: 10px 20px; /* Adjusted padding for smaller button size */
+        background: #4e085f;
+        color: #fff;
+        font-size: 14px; /* Adjusted font size */
+        cursor: pointer;
+        border-radius: 5px; /* Reduced border radius */
+        margin: 0 5px; /* Added margin for spacing between buttons */
+      }
+     
+      ul li {
+        list-style: none;
+        font-size: 17px;
+        padding: 12px 8px 12px 50px;
+        user-select: none;
+        cursor: pointer;
+        position: relative;
+      }
+
+      ul li::before {
+        content: "";
+        position: absolute;
+        height: 28px;
+        width: 28px;
+        border-radius: 50%;
+        background-image: url(unchecked.png);
+        background-size: cover;
+        background-position: center;
+        top: 12px;
+        left: 8px;
+      }
+
+      ul li.checked {
+        color: #555;
+        text-decoration: line-through;
+      }
+
+      ul li.checked::before {
+        background-image: url(checked.png);
+      }
+
+      ul li span {
+        position: absolute;
+        right: 0;
+        top: 5px;
+        width: 40px;
+        height: 40px;
+        font-size: 22px;
+        color: #555;
+        line-height: 40px;
+        text-align: center;
+        border-radius: 50%;
+      }
+
+      ul li span:hover {
+        background: #edeef0;
+      }
+
+      .filter-buttons {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="todo-app">
+        <h2>Welcome, <span id="username"></span>!</h2>
+        <div class="row">
+          <input id="input-box" type="text" placeholder="Add a task..." />
+          <button1 onclick="addTask()">Add Task</button>
+        </div>
+        <ul id="list-container"></ul>
+        <div class="filter-buttons">
+          <button onclick="filterTasks('all')">All Tasks</button>
+          <button onclick="filterTasks('completed')">Completed Tasks</button>
+          <button onclick="filterTasks('pending')">Pending Tasks</button>
+        </div>
+      </div>
+    </div>
+    <script>
+      const inputBox = document.getElementById("input-box");
+      const listContainer = document.getElementById("list-container");
+      const loggedInUser = localStorage.getItem("loggedInUser");
+
+      // Display the logged-in username
+      document.getElementById("username").textContent = loggedInUser || "Guest";
+
+      if (!loggedInUser) {
+        alert("No user logged in. Redirecting to login page...");
+        window.location.href = "form.html"; // Redirect to login page if no user is logged in
+      }
+
+      // Add new task with edit functionality
+      function addTask() {
+        if (inputBox.value === "") {
+          alert("You must write something!");
+          return;
+        }
+
+        const task = {
+          text: inputBox.value,
+          completed: false,
+        };
+
+        let li = document.createElement("li");
+        li.innerHTML = task.text; // Removed status span
+        li.setAttribute("contenteditable", "false"); // Initially, not editable
+        li.setAttribute("data-completed", task.completed);
+        listContainer.appendChild(li);
+
+        let span = document.createElement("span");
+        span.innerHTML = "\u00d7"; // Delete button
+        li.appendChild(span);
+
+        inputBox.value = "";
+        saveData();
+      }
+
+      listContainer.addEventListener("dblclick", function (e) {
+        if (
+          e.target.tagName === "LI" &&
+          !e.target.classList.contains("checked")
+        ) {
+          e.target.setAttribute("contenteditable", "true"); // Make the task editable
+          e.target.focus(); // Focus on the task
+
+          e.target.addEventListener(
+            "blur",
+            function () {
+              e.target.setAttribute("contenteditable", "false"); // Disable editing when focus is lost
+              saveData(); // Save updated tasks
+            },
+            { once: true }
+          ); // Remove the event listener after the first trigger
+        }
+      });
+
+      listContainer.addEventListener(
+        "click",
+        function (e) {
+          if (e.target.tagName === "LI") {
+            const isChecked = e.target.classList.toggle("checked");
+            e.target.setAttribute("data-completed", isChecked);
+            saveData();
+          } else if (e.target.tagName === "SPAN") {
+            e.target.parentElement.remove();
+            saveData();
+          }
+        },
+        false
+      );
+
+      function saveData() {
+        const userTasks = localStorage.getItem("tasks")
+          ? JSON.parse(localStorage.getItem("tasks"))
+          : {};
+        const tasksArray = Array.from(listContainer.children).map((li) => ({
+          text: li.childNodes[0].textContent,
+          completed: li.classList.contains("checked"),
+        }));
+        userTasks[loggedInUser] = tasksArray; // Save tasks for the logged-in user
+        localStorage.setItem("tasks", JSON.stringify(userTasks));
+      }
+
+      function showTask() {
+        const userTasks = JSON.parse(localStorage.getItem("tasks"));
+        if (userTasks && userTasks[loggedInUser]) {
+          listContainer.innerHTML = ""; // Clear the list before populating
+          userTasks[loggedInUser].forEach((task) => {
+            let li = document.createElement("li");
+            li.innerHTML = task.text; // Removed status span
+            li.classList.toggle("checked", task.completed); // Set the class based on completion status
+            listContainer.appendChild(li);
+            let span = document.createElement("span");
+            span.innerHTML = "\u00d7"; // Delete button
+            li.appendChild(span);
+          });
+        }
+      }
+
+      function filterTasks(status) {
+        const userTasks = JSON.parse(localStorage.getItem("tasks"));
+        listContainer.innerHTML = ""; // Clear the list before filtering
+        if (userTasks && userTasks[loggedInUser]) {
+          userTasks[loggedInUser].forEach((task) => {
+            if (
+              status === "all" ||
+              (status === "completed" && task.completed) ||
+              (status === "pending" && !task.completed)
+            ) {
+              let li = document.createElement("li");
+              li.innerHTML = task.text; // Removed status span
+              li.classList.toggle("checked", task.completed); // Set the class based on completion status
+              listContainer.appendChild(li);
+              let span = document.createElement("span");
+              span.innerHTML = "\u00d7"; // Delete button
+              li.appendChild(span);
+            }
+          });
+        }
+      }
+
+      showTask();
+    </script>
+  </body>
+</html>
